@@ -1,7 +1,9 @@
 use anchor_lang::{prelude::*, system_program::{transfer, Transfer}};
 mod state;
+
+
 declare_id!("ChQB3vYCZaFiBvVBjkkXMZXWkYeGid9Yi7WLBKH7sBfe");
-// reimplement this for SPL tokens 
+// reimplement this for SPL tokens support too 
 #[program]
 pub mod anchor_vault {
     use super::*;
@@ -10,11 +12,11 @@ pub mod anchor_vault {
         ctx.accounts.initialize(&ctx.bumps)
     }
 
-    pub fn deposit(ctx: Context<Deposit>) -> Result<()> {
+    pub fn deposit(ctx: Context<Payment>, amount: u64) -> Result<()> {
         ctx.accounts.deposit(amount)
     }
-
-    pub fn withdraw(ctx: Context<Withdraw>) -> Result<()> {
+ 
+    pub fn withdraw(ctx: Context<Payment>, amount: u64) -> Result<()> {
         ctx.accounts.withdraw(amount)
     }
 }
@@ -96,10 +98,18 @@ impl <'info> Payment <'info> {
             to: self.user.to_account_info()
         };
 
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        let seeds = &[
+            b"vault",
+            self.state.to_account_info().key.as_ref(),
+            &[self.state.vault_bump]
+        ];
+
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts,signer_seeds);
 
         transfer(cpi_ctx,  amount)?;
-        self.state.amount += amount;
+        self.state.amount -= amount;
 
         Ok(())
     }
